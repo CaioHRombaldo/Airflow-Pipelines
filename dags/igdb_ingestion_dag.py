@@ -39,8 +39,9 @@ with DAG(
         )
 
         igdb_key = Variable.get('IGDB_API_KEY')
+        igdb_api_client = Variable.get('IGDB_API_CLIENT')
         url = "https://api.igdb.com/v4/games"
-        headers = {'Client-ID': 'YOUR_TWITCH_CLIENT_ID', 'Authorization': f'Bearer {igdb_key}'}
+        headers = {'Client-ID': igdb_api_client, 'Authorization': f'Bearer {igdb_key}'}
 
         response = requests.post(url, headers=headers, json={"fields": "name,rating,platforms; limit 10;"})
         data = response.json()

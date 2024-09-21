@@ -8,6 +8,7 @@ import awswrangler as wr
 import pandas as pd
 import requests
 import boto3
+import logging
 
 
 default_args = {
@@ -46,12 +47,14 @@ with DAG(
         data = response.json()['results']
         df = pd.DataFrame(data)
         dt_etl = datetime.now().strftime(r"%Y-%m-%d")
-        
+        logging.info('Dados extraídos com sucesso.')
+
         wr.s3.to_csv(
             df=df,
             path=f's3://{BUCKET_LANDING}/games/{dt_etl}/rawg_data.csv',
             boto3_session=session,
             index=True
         )
+        logging.info('Sucesso no envio para o S3.')
 
     fetch_rawg_data()

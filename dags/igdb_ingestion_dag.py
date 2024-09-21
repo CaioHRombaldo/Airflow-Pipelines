@@ -8,6 +8,8 @@ import awswrangler as wr
 import pandas as pd
 import requests
 import boto3
+import logging
+
 
 default_args = {
     'owner': 'Caio Rombaldo',
@@ -47,6 +49,7 @@ with DAG(
         data = response.json()
         df = pd.DataFrame(data)
         dt_etl = datetime.now().strftime(r"%Y-%m-%d")
+        logging.info('Dados extraídos com sucesso.')
 
         wr.s3.to_csv(
             df=df,
@@ -54,5 +57,6 @@ with DAG(
             boto3_session=session,
             index=True
         )
+        logging.info('Sucesso no envio para o S3.')
 
     fetch_igdb_data()

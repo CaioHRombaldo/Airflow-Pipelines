@@ -24,9 +24,24 @@ with DAG(
     start_date=days_ago(1),
     catchup=False,
 ) as dag:
-    
     @task
-    def fetch_igdb_data():
+    def get_twitch_token():
+        igdb_key = Variable.get('IGDB_API_KEY')
+        igdb_api_client = Variable.get('IGDB_API_CLIENT')
+
+        url = 'https://id.twitch.tv/oauth2/token'
+        params = {
+            'client_id': igdb_api_client,
+            'client_secret': igdb_key,
+            'grant_type': 'client_credentials'
+        }
+
+        response = requests.post(url, params=params)
+        response.raise_for_status()
+        return response.json()['access_token']
+
+    @task
+    def fetch_igdb_data(token):
         AWS_ACCESS_KEY = Variable.get('AWS_ACCESS_KEY', None)
         AWS_SECRET_ACCESS_KEY = Variable.get('AWS_SECRET_ACCESS_KEY', None)
         BUCKET_LANDING = Variable.get('BUCKET_LANDING', 'pydiscovery-landing-423623835158')
@@ -40,13 +55,15 @@ with DAG(
             region_name='us-east-1'
         )
 
-        igdb_key = Variable.get('IGDB_API_KEY')
         igdb_api_client = Variable.get('IGDB_API_CLIENT')
         url = "https://api.igdb.com/v4/games"
-        headers = {'Client-ID': igdb_api_client, 'Authorization': f'Bearer {igdb_key}'}
+        headers = {'Client-ID': igdb_api_client, 'Authorization': f'Bearer {token}'}
 
-        response = requests.post(url, headers=headers, json={"fields": "name,rating,platforms; limit 10;"})
+        response = requests.post(url, headers=headers, json={"fields": "name, rating, platforms; limit 10;"})
         data = response.json()
+
+        logging.info(data)
+
         df = pd.DataFrame(data)
         dt_etl = datetime.now().strftime(r"%Y-%m-%d")
         logging.info('Dados extraídos com sucesso.')
@@ -59,4 +76,5 @@ with DAG(
         )
         logging.info('Sucesso no envio para o S3.')
 
-    fetch_igdb_data()
+    token = get_twitch_token()
+    fetch_igdb_data(token)

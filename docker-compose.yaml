@@ -1,10 +1,11 @@
 version: '3'
 services:
   airflow-init:
-    image: apache/airflow:2.10.1
+    build: .
+    image: custom-airflow:latest
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
     command: bash -c "airflow db init"
     volumes:
       - ./dags:/opt/airflow/dags
@@ -14,14 +15,15 @@ services:
       - .env
 
   webserver:
-    image: apache/airflow:2.10.1
+    build: .
+    image: custom-airflow:latest
     depends_on:
       - airflow-init
     ports:
       - "8080:8080"
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
     command: bash -c "airflow webserver"
     volumes:
       - ./dags:/opt/airflow/dags
@@ -31,12 +33,13 @@ services:
       - .env
 
   scheduler:
-    image: apache/airflow:2.10.1
+    build: .
+    image: custom-airflow:latest
     depends_on:
       - webserver
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
     command: bash -c "airflow scheduler"
     volumes:
       - ./dags:/opt/airflow/dags

@@ -2,7 +2,7 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.models import Variable
 from airflow.utils.dates import days_ago
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import awswrangler as wr
 import pandas as pd
@@ -45,10 +45,11 @@ with DAG(
         response = requests.get(url)
         data = response.json()['results']
         df = pd.DataFrame(data)
+        dt_etl = datetime.now().strftime(r"%Y-%m-%d")
         
         wr.s3.to_csv(
             df=df,
-            path=f's3://{BUCKET_LANDING}/rawg_data.csv',
+            path=f's3://{BUCKET_LANDING}/games/{dt_etl}/rawg_data.csv',
             boto3_session=session,
             index=True
         )

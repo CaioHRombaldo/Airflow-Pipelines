@@ -24,6 +24,7 @@ with DAG(
     start_date=days_ago(1),
     catchup=False,
 ) as dag:
+    
     @task
     def get_twitch_token():
         igdb_key = Variable.get('IGDB_API_KEY')

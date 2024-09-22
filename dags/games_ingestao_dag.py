@@ -71,6 +71,12 @@ with DAG(
         BUCKET_INTEGRATION = Variable.get('BUCKET_INTEGRATION')
         dt_etl = datetime.now().strftime(r"%Y-%m-%d")
 
+        session = boto3.Session(
+            aws_access_key_id=AWS_ACCESS_KEY, 
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            region_name='us-east-1'
+        )
+
         rawg_cleaned = wr.s3.read_parquet(path=f's3://{BUCKET_RAW}/games/{dt_etl}/rawg_data.parquet', boto3_session=session)
         igdb_cleaned = wr.s3.read_parquet(path=f's3://{BUCKET_RAW}/games/{dt_etl}/igdb_data.parquet', boto3_session=session)
 
@@ -94,6 +100,12 @@ with DAG(
         AWS_SECRET_ACCESS_KEY = Variable.get('AWS_SECRET_ACCESS_KEY')
         BUCKET_INTEGRATION = Variable.get('BUCKET_INTEGRATION')
         BUCKET_CONSUME = Variable.get('BUCKET_CONSUME')
+
+        session = boto3.Session(
+            aws_access_key_id=AWS_ACCESS_KEY, 
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            region_name='us-east-1'
+        )
 
         integrated_df = wr.s3.read_parquet(path=f's3://{BUCKET_INTEGRATION}/games/integrated_data.parquet', boto3_session=session)
         

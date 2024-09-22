@@ -60,7 +60,7 @@ with DAG(
         url = "https://api.igdb.com/v4/games"
         headers = {'Client-ID': igdb_api_client, 'Authorization': f'Bearer {token}'}
 
-        response = requests.post(url, headers=headers, json={"fields": "name, rating, platforms; limit 10;"})
+        response = requests.post(url, headers=headers, data='fields name,rating,platforms;limit 500;')
         data = response.json()
 
         logging.info(data)

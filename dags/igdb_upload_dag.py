@@ -63,8 +63,6 @@ with DAG(
         response = requests.post(url, headers=headers, data='fields name,rating,platforms;limit 500;')
         data = response.json()
 
-        logging.info(data)
-
         df = pd.DataFrame(data)
         dt_etl = datetime.now().strftime(r"%Y-%m-%d")
         logging.info('Dados extraídos com sucesso.')
@@ -77,5 +75,40 @@ with DAG(
         )
         logging.info('Sucesso no envio para o S3.')
 
+    @task
+    def fetch_igdb_platforms_data(token):
+        AWS_ACCESS_KEY = Variable.get('AWS_ACCESS_KEY', None)
+        AWS_SECRET_ACCESS_KEY = Variable.get('AWS_SECRET_ACCESS_KEY', None)
+        BUCKET_LANDING = Variable.get('BUCKET_LANDING', 'pydiscovery-landing-423623835158')
+
+        if not AWS_ACCESS_KEY or not AWS_SECRET_ACCESS_KEY:
+            return Exception('Não foi possível obter as credenciais de comunicação com a AWS.')
+        
+        session = boto3.Session(
+            aws_access_key_id=AWS_ACCESS_KEY, 
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            region_name='us-east-1'
+        )
+
+        igdb_api_client = Variable.get('IGDB_API_CLIENT')
+        url = "https://api.igdb.com/v4/platforms"
+        headers = {'Client-ID': igdb_api_client, 'Authorization': f'Bearer {token}'}
+
+        response = requests.post(url, headers=headers, data='fields name;limit 500;')
+        data = response.json()
+
+        df = pd.DataFrame(data)
+        dt_etl = datetime.now().strftime(r"%Y-%m-%d")
+        logging.info('Dados extraídos com sucesso.')
+
+        wr.s3.to_csv(
+            df=df,
+            path=f's3://{BUCKET_LANDING}/platforms/{dt_etl}/igdb_data.csv',
+            boto3_session=session,
+            index=True
+        )
+        logging.info('Sucesso no envio para o S3.')
+
     token = get_twitch_token()
     fetch_igdb_data(token)
+    fetch_igdb_platforms_data(token)

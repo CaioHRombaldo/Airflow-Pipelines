@@ -30,6 +30,7 @@ with DAG(
         AWS_SECRET_ACCESS_KEY = Variable.get('AWS_SECRET_ACCESS_KEY')
         BUCKET_LANDING = Variable.get('BUCKET_LANDING')
         BUCKET_RAW = Variable.get('BUCKET_RAW')
+        dt_etl = datetime.now().strftime(r"%Y-%m-%d")
 
         session = boto3.Session(
             aws_access_key_id=AWS_ACCESS_KEY, 
@@ -37,13 +38,16 @@ with DAG(
             region_name='us-east-1'
         )
 
-        rawg_df = wr.s3.read_csv(path=f's3://{BUCKET_LANDING}/landing/rawg_data.csv', boto3_session=session)
-        igdb_df = wr.s3.read_csv(path=f's3://{BUCKET_LANDING}/landing/igdb_data.csv', boto3_session=session)
+        rawg_df = wr.s3.read_csv(path=f's3://{BUCKET_LANDING}/games/{dt_etl}/rawg_data.csv', boto3_session=session)
+        igdb_df = wr.s3.read_csv(path=f's3://{BUCKET_LANDING}/games/{dt_etl}/igdb_data.csv', boto3_session=session)
 
         # Limpeza inicial dos dados
         rawg_cleaned = rawg_df[['name', 'rating', 'released', 'platforms']]
         igdb_cleaned = igdb_df[['name', 'rating', 'platforms']]
-        dt_etl = datetime.now().strftime(r"%Y-%m-%d")
+
+        # Adicionando coluna de dt_etl
+        rawg_cleaned['dt_etl'] = dt_etl
+        igdb_cleaned['dt_etl'] = dt_etl
 
         # Salvando os limpos na camada Raw diretamente no S3
         wr.s3.to_parquet(
@@ -58,23 +62,24 @@ with DAG(
             boto3_session=session,
             index=True
         )
-        
-        return rawg_cleaned, igdb_cleaned
     
     @task
-    def integrate_data(rawg_cleaned, igdb_cleaned):
+    def integrate_data():
         AWS_ACCESS_KEY = Variable.get('AWS_ACCESS_KEY')
         AWS_SECRET_ACCESS_KEY = Variable.get('AWS_SECRET_ACCESS_KEY')
         BUCKET_RAW = Variable.get('BUCKET_RAW')
         BUCKET_INTEGRATION = Variable.get('BUCKET_INTEGRATION')
+        dt_etl = datetime.now().strftime(r"%Y-%m-%d")
+
+        rawg_cleaned = wr.s3.read_parquet(path=f's3://{BUCKET_RAW}/games/{dt_etl}/rawg_data.parquet', boto3_session=session)
+        igdb_cleaned = wr.s3.read_parquet(path=f's3://{BUCKET_RAW}/games/{dt_etl}/igdb_data.parquet', boto3_session=session)
 
         integrated_df = pd.merge(rawg_cleaned, igdb_cleaned, on="name", how="inner")
-        dt_etl = datetime.now().strftime(r"%Y-%m-%d")
 
         # Salvando os dados integrados na camada Integration diretamente no S3
         wr.s3.to_parquet(
             df=integrated_df,
-            path=f's3://{BUCKET_INTEGRATION}/games/{dt_etl}/integrated_data.parquet',
+            path=f's3://{BUCKET_INTEGRATION}/games/integrated_data.parquet',
             boto3_session=boto3.Session(
                 aws_access_key_id=AWS_ACCESS_KEY, 
                 aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
@@ -82,24 +87,23 @@ with DAG(
             ),
             index=True
         )
-        
-        return integrated_df
 
     @task
-    def prepare_for_consume(integrated_df):
+    def prepare_for_consume():
         AWS_ACCESS_KEY = Variable.get('AWS_ACCESS_KEY')
         AWS_SECRET_ACCESS_KEY = Variable.get('AWS_SECRET_ACCESS_KEY')
         BUCKET_INTEGRATION = Variable.get('BUCKET_INTEGRATION')
         BUCKET_CONSUME = Variable.get('BUCKET_CONSUME')
 
+        integrated_df = wr.s3.read_parquet(path=f's3://{BUCKET_INTEGRATION}/games/integrated_data.parquet', boto3_session=session)
+        
         # Geração de insights - Exemplo: Média de avaliações por plataforma
         insights = integrated_df.groupby('platforms')['rating'].mean().reset_index()
-        dt_etl = datetime.now().strftime(r"%Y-%m-%d")
-
+        
         # Salvando os insights na camada Consume diretamente no S3
         wr.s3.to_parquet(
             df=insights,
-            path=f's3://{BUCKET_CONSUME}/games/{dt_etl}/insights.parquet',
+            path=f's3://{BUCKET_CONSUME}/games/insights.parquet',
             boto3_session=boto3.Session(
                 aws_access_key_id=AWS_ACCESS_KEY, 
                 aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
@@ -108,6 +112,4 @@ with DAG(
             index=True
         )
 
-    rawg_cleaned, igdb_cleaned = process_raw_layer()
-    integrated_df = integrate_data(rawg_cleaned, igdb_cleaned)
-    prepare_for_consume(integrated_df)
+    process_raw_layer() >> integrate_data() >> prepare_for_consume()

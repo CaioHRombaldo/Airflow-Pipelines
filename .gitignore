@@ -163,3 +163,9 @@ cython_debug/
 
 # Airflow Logs
 /logs
+
+# Arquivos Temporários
+/temp
+
+# CSV Files
+.csv
